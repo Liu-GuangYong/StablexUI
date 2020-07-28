@@ -24,13 +24,13 @@ class Options extends Button{
     * First element in these pairs must be of <type>String</type> type.
     * First option is selected by default
     */
-    public var options (default,set_options) : Array<Array<Dynamic>>;
+    public var options (default,set) : Array<Array<Dynamic>>;
     //List wich appears when control is clicked
     public var list : Floating;
     //box is a child for `.list` and contains buttons for each option
     public var box : Box;
     //Currently selected value. If you try to set value wich is not in the `.options`, than `.value` won't be changed
-    public var value (get_value,set_value) : Dynamic;
+    public var value (get,set) : Dynamic;
     //defaults for options in list (each option is a <type>Toggle</type> widget)
     public var optionDefaults : String = 'Default';
     //If this is true. List position will be overriden to make list appear under this control
@@ -38,8 +38,10 @@ class Options extends Button{
 
     //if `rebuildList` is true, options list will be rebuilt before next show
     public var rebuildList : Bool = true;
+    //if `true` then next assignment to `options` or `value` will not trigger `WidgetEvent.CHANGE`
+    private var _skipNextChangeEvent : Bool = false;
     //currently selected option index in `.options`
-    private var _selectedIdx (default,set__selectedIdx) : Int = 0;
+    private var _selectedIdx (default,set) : Int = 0;
 
     //transition for changing children
     public var trans : Transition = null;
@@ -71,10 +73,24 @@ class Options extends Button{
             this.rebuildList = true;
             this._selectedIdx = idx;
             this.text = this.options[idx][0];
-            this.dispatchEvent(new WidgetEvent(WidgetEvent.CHANGE));
+            if (this._skipNextChangeEvent) {
+                this._skipNextChangeEvent = false;
+            } else {
+                this.dispatchEvent(new WidgetEvent(WidgetEvent.CHANGE));
+            }
         }
         return idx;
     }//function set__selectedIdx()
+
+
+    /**
+    * Change `this.options` without dispatching `WidgetEvent.CHANGE`
+    *
+    */
+    public function setOptionsSilently(options:Array<Array<Dynamic>>) : Void {
+        this._skipNextChangeEvent = true;
+        this.options = options;
+    }
 
 
     /**
@@ -233,7 +249,7 @@ class Options extends Button{
     private function _onClickStage (e:MouseEvent) : Void {
         if( !this.list.shown ) return;
 
-        var obj : DisplayObject = e.target;
+        var obj : DisplayObject = (Std.is(e.target, DisplayObject) ? cast e.target : null);
         while( obj != null ){
             //clicked this widget
             if( obj == this || obj == this.list ){

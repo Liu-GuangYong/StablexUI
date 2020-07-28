@@ -20,7 +20,7 @@ class Radio extends Checkbox{
 
 
     //group name for this control
-    public var group (default,set_group) : String;
+    public var group (default,set) : String;
 
 
     /**
@@ -70,7 +70,7 @@ class Radio extends Checkbox{
             if( lst != null ){
 
                 for(option in lst){
-                    if( option != this ){
+                    if( option != this && option.selected){
                         option.selected = false;
                     }
                 }

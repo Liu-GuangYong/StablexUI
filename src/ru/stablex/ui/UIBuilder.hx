@@ -498,16 +498,20 @@ class UIBuilder {
                 var event : Array<String> = UIBuilder._events.get( UIBuilder._erEvent.matched(1) );
                 if( event == null ) Err.trigger('Event is not registered: ' + UIBuilder._erEvent.matched(1));
                 //required code replacements
-                value = UIBuilder.fillCodeShortcuts("event.currentTarget", value, thisClass);
+                value = UIBuilder.fillCodeShortcuts("(event.currentTarget:Dynamic)", value, thisClass);
                 code += '\n' + obj + '.addEventListener('+ event[0] +', function(event:' + event[1] + '){' + value + '});';
 
             //just apply attribute value to appropriate widget property
             }else{
-                //change '-' to '.', so 'someProp-nestedProp' becomes 'someProp.nestedProp'
-                attr  = StringTools.replace(attr, '-', '.');
                 //required code replacements
                 value = UIBuilder.fillCodeShortcuts(obj, value);
+                #if haxe4
+                var path = "[" + attr.split("-").map(function(s) return '"$s", ').join("") + "]";
+                code += 'ru.stablex.ui.UIBuilder.recurSet($obj, $path, $value);\n';
+                #else
+                attr  = StringTools.replace(attr, '-', '.');
                 code += '\n' + obj + '.' + attr + ' = ' + value + ';';
+                #end
             }
         }//while( attributes.length )
 
@@ -607,7 +611,7 @@ class UIBuilder {
 
         // Custom string replace
         while ( erCustom.match(code) ) {
-          code = erCustom.replace(code, "ru.stablex.ui.UIBuilder.customStringReplace('$2')");
+          code = erCustom.replace(code, "$1ru.stablex.ui.UIBuilder.customStringReplace('$2')");
         }
 
         code = StringTools.replace(code, "##", "#");
@@ -786,12 +790,13 @@ class UIBuilder {
     *
     * @throw <type>String</type> if this shortcut is already used
     */
-    macro static public function regEvent (shortcut:String, eventType:String, eventClass:String = 'flash.events.Event') : Expr{
+#if macro
+    static public function regEvent (shortcut:String, eventType:String, eventClass:String = 'flash.events.Event') : Expr{
         if( UIBuilder._events.exists(shortcut) ) Err.trigger('Event is already registered: ' + shortcut);
         UIBuilder._events.set(shortcut, [eventType, eventClass]);
         return Context.parse('true', Context.currentPos());
     }//function register()
-
+#end
 
     /**
     * Register class to use it in xml code.
@@ -920,13 +925,14 @@ class UIBuilder {
     *
     * @param cls - create widget of this class;
     * @param properties - read description of .apply() method below.
+    * @param constructorArguments - pass these values to `cls` class constructor.
     *
     * @throw <type>Dynamic</type> if corresponding properties of `cls` and `properties` have different types
     * @throw <type>String</type> if `cls` is not of <type>Class</type>&lt;<type>ru.stblex.ui.widgets.Widget</type>&gt;
     */
-    static public function create<T:Widget>(cls:Class<T>, properties:Dynamic = null) : Null<T>{
+    static public function create<T:Widget>(cls:Class<T>, properties:Dynamic = null, constructorArguments : Array<Dynamic> = null) : Null<T>{
         //create widget instance
-        var obj : Widget = Type.createInstance(cls, []);
+        var obj : Widget = Type.createInstance(cls, constructorArguments == null ? [] : constructorArguments);
 
         //apply defaults  {
             obj.defaults = Reflect.field(properties, 'defaults');
@@ -1012,7 +1018,7 @@ class UIBuilder {
         if( widgetDefaults != null ){
             var defs : Array<String> = obj.defaults.split(',');
             for(i in 0...defs.length){
-                var defaultsFn : Widget->Void = widgetDefaults.get(defs[i]);
+                var defaultsFn : Widget->Void = widgetDefaults.get(StringTools.trim(defs[i]));
                 if( defaultsFn != null ){
                     defaultsFn(obj);
                 }
@@ -1133,4 +1139,20 @@ class UIBuilder {
 
 
 #end
+
+    public static function recurSet(trg:Dynamic, path:Array<String>, value:Dynamic) {
+        var key = path.shift();
+        if (path.length == 0) {
+            Reflect.setProperty(trg, key, value);
+            return;
+        }
+        var hasClassfield = Type.getInstanceFields(Type.getClass(trg)).filter(function(s){return s == key || s == "set_" + key;}).length > 0;
+        var newTrg =
+        if (Reflect.hasField(trg, key) || hasClassfield) {
+            Reflect.getProperty(trg, key);
+        } else {
+             untyped trg.resolve(key);
+        };
+        recurSet(newTrg, path, value);
+    }//function recurSet()
 }//class UIBuilder

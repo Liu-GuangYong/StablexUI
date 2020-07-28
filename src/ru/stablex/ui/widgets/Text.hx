@@ -1,5 +1,6 @@
 package ru.stablex.ui.widgets;
 
+import ru.stablex.ui.events.WidgetEvent;
 import flash.text.TextField;
 import flash.text.TextFieldAutoSize;
 import flash.text.TextFormat;
@@ -10,6 +11,7 @@ import ru.stablex.ui.UIBuilder;
 
 /**
 * Text field
+* @dispatch <type>ru.stablex.ui.events.WidgetEvent</type>.TEXT_CHANGE - on change text
 */
 class Text extends Box{
     //<type>flash.display.TextField</type> used to render text
@@ -17,12 +19,12 @@ class Text extends Box{
     //Text format wich will be aplied to label on refresh
     public var format : TextFormat;
     //Text format for higlight mode
-    public var highlightFormat (get_highlightFormat,set_highlightFormat) : TextFormat;
+    public var highlightFormat (get,set) : TextFormat;
     private var _hightlightFormat : TextFormat;
     //indicates highlighting state
     public var highlighted (default,null) : Bool = false;
     //Getter-setter for text.
-    public var text (get_text,set_text) : String;
+    public var text (get,set) : String;
 
 
     /**
@@ -92,6 +94,22 @@ class Text extends Box{
     *
     */
     override public function refresh() : Void {
+        setLabelTextFormat();
+
+        if( !this.autoWidth && this.label.wordWrap ){
+            this.label.width = this._width;
+        }
+
+        super.refresh();
+
+        this.html5TextFieldSizeWorkaround();
+    }//function refresh()
+
+    /**
+    * Apply format to text
+    *
+    */
+    function setLabelTextFormat() {
         if( this.highlighted ){
             this.label.defaultTextFormat = this.highlightFormat;
             if( this.label.text.length > 0 ){
@@ -103,16 +121,7 @@ class Text extends Box{
                 this.label.setTextFormat(this.format #if cpp , 0 , this.text.length #end);
             }
         }
-
-        if( !this.autoWidth && this.label.wordWrap ){
-            this.label.width = this._width;
-        }
-
-        super.refresh();
-
-        this.html5TextFieldSizeWorkaround();
-    }//function refresh()
-
+    }//function setLabelTextFormat()
 
     /**
      *  Highlight the text by applying `.highlightFormat`
@@ -146,7 +155,7 @@ class Text extends Box{
     *
     */
     @:noCompletion private function set_text(txt:String) : String {
-        this.label.text = txt;
+        this.label.text = '$txt';//quotes are required to fix #243
 
         this.html5TextFieldSizeWorkaround();
 
@@ -156,6 +165,10 @@ class Text extends Box{
         //otherwise just realign text
         }else{
             this.alignElements();
+        }
+
+        if( this.created ) {
+            this.dispatchEvent(new WidgetEvent(WidgetEvent.TEXT_CHANGE));
         }
 
         return txt;

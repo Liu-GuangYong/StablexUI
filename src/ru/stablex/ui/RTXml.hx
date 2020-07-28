@@ -3,6 +3,8 @@ package ru.stablex.ui;
 import hscript.Expr;
 import hscript.Interp;
 import hscript.Parser;
+import ru.stablex.DynamicList;
+import ru.stablex.TweenSprite;
 import ru.stablex.ui.widgets.Widget;
 
 
@@ -129,6 +131,9 @@ class RTXml {
     static public function processXml (node:Xml, interp:Interp = null) : RTXml {
         var cache : RTXml = new RTXml(interp);
         cache.cls = RTXml.getImportedClass(node.nodeName);
+        if(interp == null) {
+            interp = cache.interp;
+        }
 
         //attributes
         for(attr in node.attributes()){
@@ -139,7 +144,6 @@ class RTXml {
                 cache.data.push( new Attribute(attr, node.get(attr)) );
             }
         }
-
         //children
         for(child in node.elements()){
             cache.children.push( RTXml.processXml(child, cache.interp) );
@@ -167,6 +171,7 @@ class RTXml {
             //register imported classes
             for(cls in RTXml.imports.keys()){
                 interp.variables.set("__ui__" + cls, RTXml.imports.get(cls));
+                interp.variables.set(cls, RTXml.imports.get(cls));
             }
         }
 
@@ -364,6 +369,9 @@ class Attribute {
             //set property value
             }else{
                 var subObj : Dynamic = Reflect.getProperty(obj, this.name);
+                if( subObj == null && Std.is(obj, DynamicList) ) {
+                    subObj = cast(obj, DynamicList<Dynamic>).get(this.name);
+                }
 
                 //if this property must be of specified type
                 if( this._instanceof != null && !Std.is(subObj, this._instanceof) ){
@@ -418,7 +426,7 @@ class HandlerAttribute extends Attribute{
     * @private
     */
     override public function apply (obj:Dynamic, interp:Interp) : Void {
-        obj.addEventListener(RTXml.events.get(this.name), function(event:flash.events.Event){
+        (obj:TweenSprite).addEventListener(RTXml.events.get(this.name), function(event:flash.events.Event){
             interp.variables.set("__ui__this", event.currentTarget);
             interp.variables.set("event", event);
             interp.execute(this.value);

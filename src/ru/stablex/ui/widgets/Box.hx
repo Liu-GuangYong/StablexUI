@@ -15,7 +15,7 @@ class Box extends Widget{
     //Should we arrange children vertically (true) or horizontally (false). True by default.
     public var vertical : Bool = true;
     //Setter for padding left, right, top, bottom.
-    public var padding (never,set_padding) : Float;
+    public var padding (never,set) : Float;
     //padding left
     public var paddingLeft   : Float = 0;
     //padding right
@@ -33,7 +33,7 @@ class Box extends Widget{
     */
     public var align : String = 'center,middle';
     //set size depending on content size
-    public var autoSize (never,set_autoSize) : Bool;
+    public var autoSize (never,set) : Bool;
     //set width depending on content width
     public var autoWidth                     : Bool = true;
     //set height depending on content height
@@ -42,7 +42,8 @@ class Box extends Widget{
     public var unifyChildren : Bool = false;
     /** should children' positions be convertent to int numbers? Use this to workaround problem of blurry images */
     public var intPositions : Bool = false;
-
+    /** indicates if currently processing child resizing event */
+    private var _processingChildResize : Bool = false;
     /** dirty hack for new openfl */
     #if ((openfl >= '2.0.0') && (openfl < '3.0.0') && (!flash))
         private var lastUnifyFrame    : Int = -1;
@@ -138,7 +139,6 @@ class Box extends Widget{
             var childW : Float = 0;
 
             for(i in 0...this.numChildren){
-                child = this.getChildAt(i);
                 child = this.getChildAt(i);
                 if( child.visible ){
                     childW = this._objWidth(child);
@@ -580,6 +580,9 @@ class Box extends Widget{
     *
     */
     @:noCompletion private function _onChildResize (e:WidgetEvent = null) : Void {
+        if (_processingChildResize) return;
+        _processingChildResize = true;
+
         if( this.created ){
             if( this.autoWidth || this.autoHeight ){
                 if( e != null ){
@@ -602,6 +605,8 @@ class Box extends Widget{
                 }
             }
         }
+
+        _processingChildResize = false;
     }//function _onChildResize()
 
 
